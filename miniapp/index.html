@@ -1,0 +1,264 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таинственный Архив - Mini App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(180deg, #1C2526 0%, #2E3A3B 100%);
+            color: #E5E5E5;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #D4A017;
+        }
+        .header img {
+            width: 60px;
+            height: auto;
+            margin-right: 15px;
+        }
+        .header-text .title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 24px;
+            color: #D4A017;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .header-text .subtitle {
+            font-size: 14px;
+            color: #A0A0A0;
+            font-style: italic;
+        }
+        .search-panel {
+            margin-bottom: 20px;
+        }
+        .search-panel select,
+        .search-panel input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: #F8F8F8;
+            color: #2E2E2E;
+            font-size: 16px;
+        }
+        .search-panel button {
+            width: 100%;
+            padding: 12px;
+            background: #D4A017;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .search-panel button:hover {
+            background: #b38e14;
+        }
+        .result-panel {
+            background: #FFFFFF;
+            color: #2E2E2E;
+            padding: 15px;
+            border-radius: 12px;
+            display: none;
+        }
+        .result-panel h2 {
+            font-family: 'Montserrat', sans-serif;
+            color: #D4A017;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        .result-panel ul {
+            list-style: none;
+            padding: 0;
+        }
+        .result-panel li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #F8F8F8;
+            border-radius: 8px;
+        }
+        .result-panel .key {
+            font-weight: 700;
+            color: #2E2E2E;
+            margin-right: 10px;
+        }
+        .result-panel .value {
+            color: #4A4A4A;
+        }
+        .error {
+            color: #FF5555;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 15px;
+            }
+            .container {
+                padding: 10px;
+            }
+            .header-text .title {
+                font-size: 20px;
+            }
+            .search-panel select,
+            .search-panel input,
+            .search-panel button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="logo.png" alt="Таинственный Архив">
+            <div class="header-text">
+                <span class="title">Таинственный Архив</span>
+                <span class="subtitle">Mini App</span>
+            </div>
+        </div>
+        <div class="search-panel">
+            <select id="searchType">
+                <option value="phone">📱 Номер телефона</option>
+                <option value="fio">👤 ФИО</option>
+                <option value="telegram">💬 Телеграм</option>
+                <option value="vk">🌐 ВКонтакте</option>
+                <option value="email">📧 Почта</option>
+            </select>
+            <input type="text" id="searchInput" placeholder="Введите запрос...">
+            <button onclick="performSearch()">🔍 Поиск</button>
+            <div id="error" class="error"></div>
+        </div>
+        <div class="result-panel" id="resultPanel">
+            <h2>Результаты поиска</h2>
+            <ul id="resultList"></ul>
+        </div>
+    </div>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        const searchTypeSelect = document.getElementById('searchType');
+        const searchInput = document.getElementById('searchInput');
+        const errorDiv = document.getElementById('error');
+        const resultPanel = document.getElementById('resultPanel');
+        const resultList = document.getElementById('resultList');
+
+        // Initialize Telegram Web App
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+
+        function validateInput(searchType, input) {
+            if (!input) return "Введите запрос.";
+            if (searchType === 'phone' && !/^\d+$/.test(input)) return "Введите только цифры для номера телефона.";
+            if (searchType === 'fio' && !/^[А-Яа-яЁё\s]+ \d{2}\.\d{2}\.\d{4}$/.test(input)) return "Введите ФИО и дату рождения в формате: Иванов Иван Иванович 15.05.1990";
+            if (searchType === 'telegram' && !/^tg\d+$/.test(input)) return "Введите Telegram ID в формате: tg5866737498";
+            if (searchType === 'vk' && !/^vk\.com\/.+$/.test(input)) return "Введите ссылку ВКонтакте в формате: vk.com/sherlock";
+            if (searchType === 'email' && !/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(input)) return "Введите корректный email, например: example@email.com";
+            return "";
+        }
+
+        async function performSearch() {
+            const searchType = searchTypeSelect.value;
+            const input = searchInput.value.trim();
+            errorDiv.textContent = '';
+            resultPanel.style.display = 'none';
+            resultList.innerHTML = '';
+
+            const validationError = validateInput(searchType, input);
+            if (validationError) {
+                errorDiv.textContent = validationError;
+                return;
+            }
+
+            try {
+                // Simulate API call to your backend
+                // Replace this with an actual API call to your server
+                const response = await fetch('https://your-backend-url.com/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Telegram.WebApp.initData}` // Pass Telegram initData for authentication
+                    },
+                    body: JSON.stringify({ searchType, query: input })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    resultPanel.style.display = 'block';
+                    data.results.forEach(item => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<span class="key">${item.key}:</span> <span class="value">${item.value}</span>`;
+                        resultList.appendChild(li);
+                    });
+                } else {
+                    errorDiv.textContent = data.error || 'Ошибка при выполнении поиска.';
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Произошла ошибка: ' + e.message;
+            }
+        }
+    </script>
+</body>
+</html>
